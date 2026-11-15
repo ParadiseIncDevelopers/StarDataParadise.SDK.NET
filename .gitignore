@@ -1,0 +1,6 @@
+/out/
+/bin/
+/obj/
+**/bin/
+**/obj/
+.vs/

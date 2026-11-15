@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Version>0.1.0</Version>
+    <RootNamespace>StarDataParadise.SDK</RootNamespace>
+    <Nullable>enable</Nullable>
+    <Description>StarDataParadise .NET SDK foundation.</Description>
+    <NuGetAudit>false</NuGetAudit>
+    <PackageReadmeFile>BUILD.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="../BUILD.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+</Project>
