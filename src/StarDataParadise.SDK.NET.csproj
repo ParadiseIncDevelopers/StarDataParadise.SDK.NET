@@ -1,14 +1,27 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Version>0.1.0</Version>
+    <PackageId>StarDataParadiseDrive</PackageId>
+    <Version>2.0.0-preview.1</Version>
+    <DebugType>none</DebugType>
     <RootNamespace>StarDataParadise.SDK</RootNamespace>
     <Nullable>enable</Nullable>
-    <Description>StarDataParadise .NET SDK foundation.</Description>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Description>Independent StarDataParadise wire v1 ADO.NET provider.</Description>
     <NuGetAudit>false</NuGetAudit>
     <PackageReadmeFile>BUILD.md</PackageReadmeFile>
+    <ContractArchive>$(MSBuildProjectDirectory)/../contracts/sdp-contract-v1.zip</ContractArchive>
+    <ContractSha256>E6500900A3FA34910781EA92D5E41FE8716511FAC6F6D6C689FF9CCE15D578AB</ContractSha256>
   </PropertyGroup>
   <ItemGroup>
     <None Include="../BUILD.md" Pack="true" PackagePath="/" />
+    <None Include="$(ContractArchive)" Pack="true" PackagePath="contracts/" />
+    <EmbeddedResource Include="$(ContractArchive)" LogicalName="StarDataParadise.SDK.WireContract.v1.zip" />
   </ItemGroup>
+  <Target Name="VerifyContract" BeforeTargets="BeforeBuild;GenerateNuspec">
+    <GetFileHash Files="$(ContractArchive)" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="HashedContract" />
+    </GetFileHash>
+    <Error Condition="'%(HashedContract.FileHash)' != '$(ContractSha256)'" Text="Wire contract SHA-256 mismatch." />
+  </Target>
 </Project>

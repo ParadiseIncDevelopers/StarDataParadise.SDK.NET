@@ -1,10 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework Condition="'$(FrameworkFixture)' != 'true'">net10.0</TargetFramework>
+    <TargetFramework Condition="'$(FrameworkFixture)' == 'true'">net48</TargetFramework>
+    <AutoGenerateBindingRedirects Condition="'$(FrameworkFixture)' == 'true'">true</AutoGenerateBindingRedirects>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
     <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="StarDataParadise.SDK.NET" Version="[0.1.0]" />
+    <Reference Condition="'$(FrameworkFixture)' == 'true'" Include="System.IO.Compression" />
+    <PackageReference Condition="'$(FrameworkFixture)' != 'true'" Include="StarDataParadiseDrive" Version="[2.0.0-preview.1]" />
+    <PackageReference Condition="'$(FrameworkFixture)' == 'true'" Include="StarDataParadiseNetFramework" Version="[2.0.0-preview.1]" />
   </ItemGroup>
 </Project>
