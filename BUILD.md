@@ -1,9 +1,9 @@
 # StarDataParadiseDrive
 
-StarDataParadiseDrive 2.0.2 is an independent ADO.NET provider for .NET 8 and .NET 10 on StarDataParadise Server 0.3.0 wire protocol v1. It uses TLS with certificate and server-name verification by default. The package has no Native DLL dependency. Existing 1.x applications should retain their pinned version until they migrate to .NET 8 or later and the provider API.
+StarDataParadiseDrive 2.0.3 is an independent ADO.NET provider for .NET 8 and .NET 10 on StarDataParadise Server 0.3.0 wire protocol v1. It uses TLS with certificate and server-name verification by default. The package has no Native DLL dependency. Existing 1.x applications should retain their pinned version until they migrate to .NET 8 or later and the provider API.
 
 ~~~powershell
-dotnet add package StarDataParadiseDrive --version 2.0.2
+dotnet add package StarDataParadiseDrive --version 2.0.3
 ~~~
 
 ## Connect and bind SQL parameters
@@ -56,4 +56,4 @@ The embedded and packaged wire contract has SHA-256 e6500900a3fa34910781ea92d5e4
 
 ## Local build and test
 
-Run ci.ps1 from the .NET SDK checkout with .NET SDK 10.0.402. It writes out/packages/StarDataParadiseDrive.2.0.2.nupkg and installs that exact version into a fresh local NuGet cache for the .NET 8 and .NET 10 console consumers. Add -Server, -OpenSsl and -FixtureHarness to run the separate real TLS acceptance fixture. The fixture must provision an isolated Server and supply its generated credentials independently of the package.
+Run ci.ps1 from the .NET SDK checkout with .NET SDK 10.0.402. It writes out/packages/StarDataParadiseDrive.2.0.3.nupkg and installs that exact version into a fresh local NuGet cache for the .NET 8 and .NET 10 console consumers. Add -Server, -OpenSsl and -FixtureHarness to run the separate real TLS acceptance fixture. The fixture must provision an isolated Server and supply its generated credentials independently of the package.
