@@ -1,11 +1,13 @@
 using System;
 using System.Buffers.Binary;
 using System.IO;
+using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,12 +18,16 @@ internal sealed class SdpWire : IDisposable
 {
     private const int ProtocolVersion = 1;
     private const int MaxFrame = 1024 * 1024;
+#if NET8_0
+    private static readonly JsonDocumentOptions DocumentOptions = new() { MaxDepth = 32 };
+#else
     private static readonly JsonDocumentOptions DocumentOptions = new() { MaxDepth = 32, AllowDuplicateProperties = false };
+#endif
     private static readonly JsonSerializerOptions SerializerOptions = new() { MaxDepth = 32 };
     private static readonly object EmptyBody = new { };
 
     private readonly TcpClient _client;
-    private readonly SslStream _stream;
+    private readonly Stream _stream;
     private readonly TimeSpan _timeout;
     private readonly X509Certificate2Collection _roots;
     private readonly SemaphoreSlim _singleExchange = new(1, 1);
@@ -29,7 +35,7 @@ internal sealed class SdpWire : IDisposable
     private uint _pendingRequestId;
     private int _disposed;
 
-    private SdpWire(TcpClient client, SslStream stream, TimeSpan timeout, X509Certificate2Collection roots)
+    private SdpWire(TcpClient client, Stream stream, TimeSpan timeout, X509Certificate2Collection roots)
     {
         _client = client;
         _stream = stream;
@@ -43,48 +49,65 @@ internal sealed class SdpWire : IDisposable
     internal uint CurrentRequestId => Volatile.Read(ref _pendingRequestId);
 
     internal static async Task<SdpWire> OpenAsync(string host, int port, string tlsName, string? caFile,
-        string user, string password, TimeSpan timeout, CancellationToken cancellationToken)
+        IPAddress? plaintextAddress, string user, string password, TimeSpan timeout, CancellationToken cancellationToken)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(timeout);
-        var client = new TcpClient { NoDelay = true };
-        SslStream? stream = null;
+        var client = plaintextAddress is null ? new TcpClient() : new TcpClient(plaintextAddress.AddressFamily);
+        Stream? stream = null;
         var roots = new X509Certificate2Collection();
         var opened = false;
         try
         {
-            var target = string.IsNullOrEmpty(tlsName) ? host : tlsName;
+            client.NoDelay = true;
             if (!string.IsNullOrEmpty(caFile)) ImportRoots(roots, caFile!);
 #if NETFRAMEWORK
             using var cancellation = deadline.Token.Register(client.Close);
-            await client.ConnectAsync(host, port).ConfigureAwait(false);
-            stream = new SslStream(client.GetStream(), false,
-                (_, certificate, _, errors) => ValidateFrameworkCertificate(roots, certificate, errors));
-            await stream.AuthenticateAsClientAsync(target, new X509CertificateCollection(), SslProtocols.Tls12, false)
-                .ConfigureAwait(false);
+            if (plaintextAddress is null)
+                await client.ConnectAsync(host, port).ConfigureAwait(false);
+            else
+                await client.ConnectAsync(plaintextAddress, port).ConfigureAwait(false);
 #else
-            var authentication = new SslClientAuthenticationOptions
-            {
-                TargetHost = target,
-                EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
-                AllowRenegotiation = false,
-            };
-            if (roots.Count != 0)
-            {
-                authentication.CertificateChainPolicy = new X509ChainPolicy
-                {
-                    TrustMode = X509ChainTrustMode.CustomRootTrust,
-                    RevocationMode = X509RevocationMode.NoCheck,
-                };
-                authentication.CertificateChainPolicy.CustomTrustStore.AddRange(roots);
-            }
-            await client.ConnectAsync(host, port, deadline.Token).ConfigureAwait(false);
-            stream = new SslStream(client.GetStream());
-            await stream.AuthenticateAsClientAsync(authentication, deadline.Token).ConfigureAwait(false);
+            if (plaintextAddress is null)
+                await client.ConnectAsync(host, port, deadline.Token).ConfigureAwait(false);
+            else
+                await client.ConnectAsync(plaintextAddress, port, deadline.Token).ConfigureAwait(false);
 #endif
+            stream = client.GetStream();
+            if (plaintextAddress is null)
+            {
+                var target = string.IsNullOrEmpty(tlsName) ? host : tlsName;
+#if NETFRAMEWORK
+                var tls = new SslStream(stream, false,
+                    (_, certificate, _, errors) => ValidateFrameworkCertificate(roots, certificate, errors));
+                stream = tls;
+                await tls.AuthenticateAsClientAsync(target, new X509CertificateCollection(), SslProtocols.Tls12, false)
+                    .ConfigureAwait(false);
+#else
+                var tls = new SslStream(stream);
+                stream = tls;
+                var authentication = new SslClientAuthenticationOptions
+                {
+                    TargetHost = target,
+                    EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                    AllowRenegotiation = false,
+                };
+                if (roots.Count != 0)
+                {
+                    authentication.CertificateChainPolicy = new X509ChainPolicy
+                    {
+                        TrustMode = X509ChainTrustMode.CustomRootTrust,
+                        RevocationMode = X509RevocationMode.NoCheck,
+                    };
+                    authentication.CertificateChainPolicy.CustomTrustStore.AddRange(roots);
+                }
+                await tls.AuthenticateAsClientAsync(authentication, deadline.Token).ConfigureAwait(false);
+#endif
+            }
             deadline.Token.ThrowIfCancellationRequested();
             var wire = new SdpWire(client, stream, timeout, roots);
-            var hello = await wire.CallAsync("hello", null, deadline.Token).ConfigureAwait(false);
+            var hello = await wire.CallAsync("hello", null, deadline.Token,
+                allowClassicGreeting: plaintextAddress is not null).ConfigureAwait(false);
             if (hello.GetProperty("protocol_version").GetInt32() != ProtocolVersion)
                 throw new SdpException(1003, "0A000", "Incompatible protocol version");
             wire.SessionId = hello.GetProperty("session_id").GetString() ?? throw new JsonException("Missing session ID");
@@ -132,7 +155,7 @@ internal sealed class SdpWire : IDisposable
     }
 
     internal async Task<JsonElement> CallAsync(string operation, object? body, CancellationToken cancellationToken,
-        string? requestToken = null)
+        string? requestToken = null, bool allowClassicGreeting = false)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(_timeout);
@@ -168,12 +191,28 @@ internal sealed class SdpWire : IDisposable
             await _stream.WriteAsync(header, 0, header.Length, deadline.Token).ConfigureAwait(false);
             await _stream.WriteAsync(payload, 0, payload.Length, deadline.Token).ConfigureAwait(false);
             await ReadExactlyAsync(header, deadline.Token).ConfigureAwait(false);
+            if (allowClassicGreeting && header[0] >= 2 && header[1] == 0 && header[2] == 0 && header[3] == 0)
+            {
+                // The local shared listener sends a Classic greeting for server-first clients.
+                // Our wire hello was already sent. Consume the greeting before reading its reply.
+                var greeting = new byte[header[0]];
+                await ReadExactlyAsync(greeting, deadline.Token).ConfigureAwait(false);
+                var versionEnd = Array.IndexOf(greeting, (byte)0, 1);
+                if (greeting[0] != 10 || versionEnd <= 1 ||
+                    !Encoding.ASCII.GetString(greeting, 1, versionEnd - 1)
+                        .EndsWith("-StarDataParadise", StringComparison.Ordinal))
+                    throw new JsonException("Invalid StarDataParadise Classic greeting");
+                await ReadExactlyAsync(header, deadline.Token).ConfigureAwait(false);
+            }
             var size = BinaryPrimitives.ReadInt32BigEndian(header);
             if (size is <= 0 or > MaxFrame) throw new JsonException("Invalid protocol frame length");
             var incoming = new byte[size];
             await ReadExactlyAsync(incoming, deadline.Token).ConfigureAwait(false);
             using var response = JsonDocument.Parse(incoming, DocumentOptions);
             var packet = response.RootElement;
+#if NET8_0
+            RejectDuplicateProperties(packet);
+#endif
             if (packet.GetProperty("v").GetInt32() != ProtocolVersion || packet.GetProperty("id").GetUInt32() != id)
                 throw new JsonException("Uncorrelated response");
             if (!packet.GetProperty("ok").GetBoolean())
@@ -212,6 +251,27 @@ internal sealed class SdpWire : IDisposable
             }
         }
     }
+
+#if NET8_0
+    private static void RejectDuplicateProperties(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            var names = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+            foreach (var property in element.EnumerateObject())
+            {
+                if (!names.Add(property.Name))
+                    throw new JsonException("Duplicate JSON property");
+                RejectDuplicateProperties(property.Value);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+                RejectDuplicateProperties(item);
+        }
+    }
+#endif
 
     private async Task ReadExactlyAsync(byte[] buffer, CancellationToken cancellationToken)
     {

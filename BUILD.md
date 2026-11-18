@@ -1,9 +1,9 @@
 # StarDataParadiseDrive
 
-StarDataParadiseDrive 2.0.0-preview.1 is an independent ADO.NET provider for .NET 10 and StarDataParadise Server 0.3.0 wire protocol v1. It uses TLS with certificate and server-name verification. The package has no Native DLL dependency. Existing 1.x applications should retain their pinned version until they migrate to .NET 10 and the provider API.
+StarDataParadiseDrive 2.0.2 is an independent ADO.NET provider for .NET 8 and .NET 10 on StarDataParadise Server 0.3.0 wire protocol v1. It uses TLS with certificate and server-name verification by default. The package has no Native DLL dependency. Existing 1.x applications should retain their pinned version until they migrate to .NET 8 or later and the provider API.
 
 ~~~powershell
-dotnet add package StarDataParadiseDrive --version 2.0.0-preview.1
+dotnet add package StarDataParadiseDrive --version 2.0.2
 ~~~
 
 ## Connect and bind SQL parameters
@@ -32,6 +32,14 @@ while (await reader.ReadAsync(cancellationToken))
 
 Use SdpFactory.Register() if your application looks providers up by invariant name. The default database is main. Use the system TLS trust store or set CA File to a PEM trust bundle. The default connection timeout is 15 seconds. CommandTimeout bounds each production RPC performed by the command. The connection string returned after opening omits the password.
 
+A wire v1 listener configured for local plaintext development accepts the following connection string. The same local endpoint can accept Classic TCP clients when configured in shared-port mode.
+
+~~~text
+Host=127.0.0.1;Port=3197;User=razor_sdk;Password=<local-test-password>;TLS Mode=Disabled;
+~~~
+
+The provider accepts TLS Mode=Disabled only for localhost or a loopback IP address. It connects directly to a loopback IP address without DNS and sends credentials and SQL over that connection in plaintext. Omit CA File and TLS Name when using this mode. TLS Mode=Required is the default.
+
 Use DbType or SqlTypeName for typed NULL parameters. The result reader returns DBNull.Value, byte arrays, signed 64-bit integers and the full-precision SdpDecimal, SdpTimestamp, SdpTime, SdpRecord and SdpCollection types. Converting to a CLR decimal or timestamp reports overflow or precision loss. DATE returns DateOnly. A timestamp's UTC seconds, nanos and display offset are separate. The wire value codec preserves named zones, while Server 0.3.0 supports binding fixed-offset timestamps.
 
 CALL takes typed IN and IN OUT parameters. Use SQL NULL for a pure OUT positional argument and a named SdpParameter with Direction=Output to receive the matching result column. Read and NextResult stream the named OUT and cursor sets. An autocommit CALL runs in one explicit Server transaction that completes when the result closes. Abort the connection or roll back an explicit transaction to discard a routine mutation. Concurrent results on a single connection, CommandType.StoredProcedure, and changing the current database are unsupported.
@@ -48,4 +56,4 @@ The embedded and packaged wire contract has SHA-256 e6500900a3fa34910781ea92d5e4
 
 ## Local build and test
 
-Run ci.ps1 from the .NET SDK checkout with .NET SDK 10.0.402. It writes out/packages/StarDataParadiseDrive.2.0.0-preview.1.nupkg and installs that exact version into a fresh local NuGet cache for the console consumer. Add -Server, -OpenSsl and -FixtureHarness to run the separate real TLS acceptance fixture. The fixture must provision an isolated Server and supply its generated credentials independently of the package.
+Run ci.ps1 from the .NET SDK checkout with .NET SDK 10.0.402. It writes out/packages/StarDataParadiseDrive.2.0.2.nupkg and installs that exact version into a fresh local NuGet cache for the .NET 8 and .NET 10 console consumers. Add -Server, -OpenSsl and -FixtureHarness to run the separate real TLS acceptance fixture. The fixture must provision an isolated Server and supply its generated credentials independently of the package.

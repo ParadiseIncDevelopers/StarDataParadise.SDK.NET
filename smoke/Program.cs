@@ -70,6 +70,14 @@ static async Task CheckError(int code, Func<Task> action)
     throw new InvalidOperationException("The expected definite SQLSTATE was absent.");
 }
 
+static async Task CheckConnectionOptions(string options, string expectedMessage)
+{
+    using var connection = new SdpConnection($"{options};User=local_test;Password=local_test;");
+    try { await connection.OpenAsync(); }
+    catch (ArgumentException error) when (error.Message == expectedMessage) { return; }
+    throw new InvalidOperationException("The connection options should have been rejected before connecting.");
+}
+
 static void Golden()
 {
     using var stream = SdpContract.OpenArchive();
@@ -102,9 +110,17 @@ Check(SdkVersion.AssemblyVersion.Major == 2 && SdpContract.WireVersion == 1, "In
 SdpFactory.Register();
 #endif
 Check(DbProviderFactories.GetFactory(SdpFactory.InvariantName) is SdpFactory, "ADO.NET provider factory");
+await CheckConnectionOptions("Host=192.0.2.1;TLS Mode=Disabled",
+    "TLS Mode=Disabled requires localhost or a loopback IP address.");
+await CheckConnectionOptions("Host=localhost.example;TLS Mode=Disabled",
+    "TLS Mode=Disabled requires localhost or a loopback IP address.");
+await CheckConnectionOptions("Host=localhost;TLS Mode=Disabled;CA File=cert.pem",
+    "CA File and TLS Name require TLS Mode=Required.");
+await CheckConnectionOptions("Host=localhost;TLS Mode=Preferred",
+    "TLS Mode must be Required or Disabled.");
 if (Environment.GetEnvironmentVariable("SDP_SDK_PORT") is null)
 {
-    Console.WriteLine("StarDataParadiseDrive 2.0.0-preview.1 package loaded");
+    Console.WriteLine($"StarDataParadise SDK {SdkVersion.AssemblyVersion} package loaded for {AppContext.TargetFrameworkName}");
     return;
 }
 

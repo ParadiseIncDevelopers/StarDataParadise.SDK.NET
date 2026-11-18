@@ -26,7 +26,7 @@ namespace StarDataParadise.SDK
             using var hash = SHA256.Create();
             return ToHex(hash.ComputeHash(value));
 #else
-            return Convert.ToHexStringLower(SHA256.HashData(value));
+            return ToHex(SHA256.HashData(value));
 #endif
         }
 
@@ -41,7 +41,7 @@ namespace StarDataParadise.SDK
             }
             return new string(chars);
 #else
-            return Convert.ToHexStringLower(value);
+            return Convert.ToHexString(value).ToLowerInvariant();
 #endif
         }
 

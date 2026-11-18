@@ -4,6 +4,7 @@ using System.Data;
 using System.Data.Common;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -251,15 +252,15 @@ public sealed class SdpConnection : DbConnection
     }
 
     private sealed record ConnectionOptions(string Host, int Port, string TlsName, string? CaFile, string User,
-        string Password, int TimeoutSeconds, bool Pooling)
+        string Password, int TimeoutSeconds, bool Pooling, IPAddress? PlaintextAddress)
     {
         internal static ConnectionOptions Parse(string value)
         {
             var settings = new DbConnectionStringBuilder { ConnectionString = value };
             foreach (string key in settings.Keys)
             {
-                if (key.ToUpperInvariant() is not ("HOST" or "PORT" or "TLS NAME" or "CA FILE" or "USER" or "PASSWORD"
-                    or "TIMEOUT" or "POOLING"))
+                if (key.ToUpperInvariant() is not ("HOST" or "PORT" or "TLS NAME" or "TLS MODE" or "CA FILE"
+                    or "USER" or "PASSWORD" or "TIMEOUT" or "POOLING"))
                     throw new ArgumentException("Unsupported StarDataParadise connection option.");
             }
             static string Read(DbConnectionStringBuilder settings, string key, string fallback = "") =>
@@ -275,19 +276,40 @@ public sealed class SdpConnection : DbConnection
                 throw new ArgumentException("Timeout must be between 1 and 300 seconds.");
             if (!bool.TryParse(Read(settings, "Pooling", "false"), out var pooling))
                 throw new ArgumentException("Pooling must be true or false.");
+            var mode = Read(settings, "TLS Mode", "Required");
+            IPAddress? plaintextAddress = null;
+            if (mode.Equals("Disabled", StringComparison.OrdinalIgnoreCase))
+            {
+                if (settings.ContainsKey("CA File") || settings.ContainsKey("TLS Name"))
+                    throw new ArgumentException("CA File and TLS Name require TLS Mode=Required.");
+
+                if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+                    plaintextAddress = IPAddress.Loopback;
+                else if (IPAddress.TryParse(host, out var address) && IPAddress.IsLoopback(address))
+                    plaintextAddress = address;
+                else
+                    throw new ArgumentException("TLS Mode=Disabled requires localhost or a loopback IP address.");
+            }
+            else if (!mode.Equals("Required", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("TLS Mode must be Required or Disabled.");
+            }
+
             var ca = Read(settings, "CA File");
             return new(host, port, Read(settings, "TLS Name", host), ca.Length > 0 ? Path.GetFullPath(ca) : null,
-                user, password, timeout, pooling);
+                user, password, timeout, pooling, plaintextAddress);
         }
 
         internal Task<SdpWire> OpenAsync(CancellationToken cancellationToken) =>
-            SdpWire.OpenAsync(Host, Port, TlsName, CaFile, User, Password, TimeSpan.FromSeconds(TimeoutSeconds), cancellationToken);
+            SdpWire.OpenAsync(Host, Port, TlsName, CaFile, PlaintextAddress, User, Password,
+                TimeSpan.FromSeconds(TimeoutSeconds), cancellationToken);
 
         internal string Key()
         {
             var identity = JsonSerializer.SerializeToUtf8Bytes(new
             {
                 Host, Port, TlsName, User, Password, TimeoutSeconds,
+                PlaintextAddress = PlaintextAddress?.ToString(),
                 Certificate = CaFile is null ? "" : SdpCompatibility.Sha256Hex(File.ReadAllBytes(CaFile)),
             });
             try { return SdpCompatibility.Sha256Hex(identity); }

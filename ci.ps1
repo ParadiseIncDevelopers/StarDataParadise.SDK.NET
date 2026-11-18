@@ -24,15 +24,18 @@ try {
     if ($LASTEXITCODE) { exit $LASTEXITCODE }
     & dotnet build smoke/Smoke.csproj -c Release --force
     if ($LASTEXITCODE) { exit $LASTEXITCODE }
-    $consumer = (Resolve-Path -LiteralPath 'smoke/bin/Release/net10.0/Smoke.dll').Path
-    if ($FixtureHarness) {
-        $contract = (Resolve-Path -LiteralPath 'contracts/sdp-contract-v1.zip').Path
-        & python -B $FixtureHarness --server $Server --openssl $OpenSsl --contract $contract --scratch out/integration --drop-op tx_commit -- dotnet $consumer
+    foreach ($target in 'net8.0', 'net10.0') {
+        $consumer = (Resolve-Path -LiteralPath "smoke/bin/Release/$target/Smoke.dll").Path
+        if ($FixtureHarness) {
+            $contract = (Resolve-Path -LiteralPath 'contracts/sdp-contract-v1.zip').Path
+            & python -B $FixtureHarness --server $Server --openssl $OpenSsl --contract $contract --scratch "out/integration/$target" --drop-op tx_commit -- dotnet $consumer
+        }
+        else {
+            & dotnet $consumer
+        }
+        if ($LASTEXITCODE) { exit $LASTEXITCODE }
     }
-    else {
-        & dotnet $consumer
-    }
-    exit $LASTEXITCODE
+    exit 0
 }
 finally {
     Pop-Location
