@@ -251,6 +251,15 @@ public sealed class SdpConnection : DbConnection
         return token;
     }
 
+    internal static async Task<(SdpWire Wire, int TimeoutSeconds)> OpenDedicatedNativeWireAsync(string connectionString, CancellationToken token)
+    {
+        var settings = new DbConnectionStringBuilder { ConnectionString = connectionString };
+        if (!settings.ContainsKey("Timeout")) settings["Timeout"] = 75;
+        var options = ConnectionOptions.Parse(settings.ConnectionString);
+        if (options.Pooling) throw new ArgumentException("Native SQL sessions use dedicated connections; disable Pooling.");
+        return (await options.OpenAsync(token).ConfigureAwait(false), options.TimeoutSeconds);
+    }
+
     private sealed record ConnectionOptions(string Host, int Port, string TlsName, string? CaFile, string User,
         string Password, int TimeoutSeconds, bool Pooling, IPAddress? PlaintextAddress)
     {

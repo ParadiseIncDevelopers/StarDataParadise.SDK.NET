@@ -38,6 +38,21 @@ public sealed class SdpException : DbException
     public int? Line { get; }
     public int? Column { get; }
 
+    /// <summary>Original structured server error, including native SQL outcome details.</summary>
+    public JsonElement? Details { get; private set; }
+    public int? NativeErrno => DetailInt("native_errno");
+    public string? Phase => DetailText("phase");
+    public string? CommitState => DetailText("commit_state");
+    public string? RunState => DetailText("run_state");
+    public string? RunId => DetailText("run_id");
+    public string? CallId => DetailText("call_id");
+    public string? ActionCommitState => DetailText("action_commit_state");
+    public int? CauseNativeErrno => DetailInt("cause_native_errno");
+    public string? CauseSqlstate => DetailText("cause_sqlstate");
+    public JsonElement? Retry => Details is { } json && json.TryGetProperty("retry", out var value) ? value : null;
+    private int? DetailInt(string name) => Details is { } json && json.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null ? value.GetInt32() : null;
+    private string? DetailText(string name) => Details is { } json && json.TryGetProperty(name, out var value) && value.ValueKind != JsonValueKind.Null ? value.GetString() : null;
+
     internal static SdpException FromWire(JsonElement error, string? token)
     {
         static string? OptionalText(JsonElement json, string key)
@@ -52,10 +67,12 @@ public sealed class SdpException : DbException
                 ? value.GetInt32() : null;
         }
 
-        return new SdpException(error.GetProperty("code").GetInt32(),
+        var result = new SdpException(error.GetProperty("code").GetInt32(),
             error.GetProperty("sqlstate").GetString() ?? throw new JsonException("Missing SQLSTATE"),
             error.GetProperty("message").GetString() ?? throw new JsonException("Missing protocol error message"),
             error.GetProperty("unknown_outcome").GetBoolean(), token, OptionalText(error, "correlation_id"),
             error.GetProperty("retryable").GetBoolean(), OptionalInt(error, "line"), OptionalInt(error, "column"));
+        result.Details = error.Clone();
+        return result;
     }
 }

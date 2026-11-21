@@ -22,6 +22,8 @@ try {
     New-Item -ItemType Directory -Path out/packages -Force | Out-Null
     & dotnet pack src/StarDataParadise.SDK.NET.csproj -c Release -o out/packages
     if ($LASTEXITCODE) { exit $LASTEXITCODE }
+    & dotnet pack framework/StarDataParadiseNetFramework.csproj -c Release -o out/packages
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
     & dotnet build smoke/Smoke.csproj -c Release --force
     if ($LASTEXITCODE) { exit $LASTEXITCODE }
     foreach ($target in 'net8.0', 'net10.0') {
@@ -35,6 +37,20 @@ try {
         }
         if ($LASTEXITCODE) { exit $LASTEXITCODE }
     }
+    & dotnet build native-smoke/NativeSmoke.csproj -c Release --force -p:InstalledPackageFixture=true
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
+    foreach ($target in 'net8.0', 'net10.0') {
+        & dotnet "native-smoke/bin/Release/$target/NativeSmoke.dll"
+        if ($LASTEXITCODE) { exit $LASTEXITCODE }
+    }
+    & dotnet build smoke/Smoke.csproj -c Release --force -p:FrameworkFixture=true
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
+    & 'smoke/bin/Release/net48/Smoke.exe'
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
+    & dotnet build native-smoke/NativeSmoke.csproj -c Release --force -p:FrameworkFixture=true -p:InstalledPackageFixture=true
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
+    & 'native-smoke/bin/Release/net48/NativeSmoke.exe'
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
     exit 0
 }
 finally {

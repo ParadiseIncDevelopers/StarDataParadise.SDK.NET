@@ -4,21 +4,21 @@ StarDataParadise Server’a wire v1 üzerinden bağlanan ADO.NET sağlayıcılar
 
 | Paket | Hedef | Sürüm |
 | --- | --- | --- |
-| `StarDataParadiseDrive` | .NET 8 ve .NET 10 | `2.0.3` |
-| `StarDataParadiseNetFramework` | .NET Framework 4.8 | `2.0.0-preview.1` |
+| `StarDataParadiseDrive` | .NET 8 ve .NET 10 | `2.1.0` |
+| `StarDataParadiseNetFramework` | .NET Framework 4.8 | `2.0.0` |
 
 ## Paketi uygulamaya ekleme
 
-.NET 8 veya .NET 10 uygulama projesinde `2.0.3` paketini içeren NuGet kaynağını kullanın. Depodaki `ci.ps1` paketi `out/packages` altında üretir. Örnekteki `C:\SDP\packages` yolunu paketi içeren dizinle değiştirin.
+.NET 8 veya .NET 10 uygulama projesinde `2.1.0` paketini içeren NuGet kaynağını kullanın. Depodaki `ci.ps1` paketi `out/packages` altında üretir. Örnekteki `C:\SDP\packages` yolunu paketi içeren dizinle değiştirin.
 
 ```powershell
-dotnet add package StarDataParadiseDrive --version 2.0.3 --source C:\SDP\packages
+dotnet add package StarDataParadiseDrive --version 2.1.0 --source C:\SDP\packages
 ```
 
 .NET Framework 4.8 için yapılandırdığınız NuGet kaynağından şu paketi ekleyin. Eski `1.x` node API’sinden geçiş yapıyorsanız `2.x` örneklerindeki ADO.NET tiplerini kullanın. [Framework 4.8 örneği ve sağlayıcı kaydı](framework/BUILD.md)
 
 ```xml
-<PackageReference Include="StarDataParadiseNetFramework" Version="2.0.0-preview.1" />
+<PackageReference Include="StarDataParadiseNetFramework" Version="2.0.0" />
 ```
 
 ## TLS bağlantısı ve ilk sorgu
@@ -46,7 +46,7 @@ while (await rows.ReadAsync())
     Console.WriteLine(rows.GetValue(0));
 ```
 
-TLS varsayılan bağlantı kipidir. Çağıranın sistem güven deposu kullanılabilir veya `CA File` ile güvenilen PEM belirtilebilir. Yerel geliştirmede, ortak dinleyici açılmışsa, Drive 2.0.3 `Host=127.0.0.1;Port=3197;TLS Mode=Disabled` alanlarıyla bağlanabilir. Bu kip loopback ile sınırlıdır ve kimlik bilgileri şifresiz iletilir. [MySQL tabanlı wire v1 dinleyicisi](https://github.com/ParadiseIncDevelopers/StarDataParadiseServer/tree/master/compatibility/wire_v1)
+TLS varsayılan bağlantı kipidir. Çağıranın sistem güven deposu kullanılabilir veya `CA File` ile güvenilen PEM belirtilebilir. Yerel geliştirmede, ortak dinleyici açılmışsa, Drive 2.1.0 `Host=127.0.0.1;Port=3197;TLS Mode=Disabled` alanlarıyla bağlanabilir. Bu kip loopback ile sınırlıdır ve kimlik bilgileri şifresiz iletilir. [MySQL tabanlı wire v1 dinleyicisi](https://github.com/ParadiseIncDevelopers/StarDataParadiseServer/tree/master/compatibility/wire_v1)
 
 ## İşlemler ve derleme
 
@@ -58,8 +58,10 @@ Modern paketi .NET SDK 10.0.402 ile derleyip kurulu paket tüketicilerini çalı
 
 ```powershell
 pwsh -NoProfile -File .\ci.ps1
-dotnet restore .\framework\StarDataParadiseNetFramework.csproj --source https://api.nuget.org/v3/index.json
-dotnet pack .\framework\StarDataParadiseNetFramework.csproj -c Release --no-restore -o out/packages
 ```
 
 [Modern ADO.NET kılavuzu ve canlı TLS testi](BUILD.md) · [Kaynak lisansı](LICENSE) · [Framework 4.8 kılavuzu](framework/BUILD.md) · [Server ve diğer SDK’lar](https://github.com/ParadiseIncDevelopers/StarDataParadiseServer)
+
+## Native AI ve SQL oturumu
+
+Server 0.5.0 ve `native_sql_v1` desteği için `await SdpNativeConnection.OpenAsync(connectionString)` kullanın. Ayrı oturum `?` parametrelerini native prepared protocol ile gönderir; SQL metni ve yordam gövdeleri korunur. Kesilen yanıtlarda otomatik yazma tekrarı yapılmaz. AI turn commit sonucu ile araç işleminin rollback sonucu ayrı hata alanlarında saklanır. [Native API ve sınır testleri](BUILD.md#native-sql-sessions).

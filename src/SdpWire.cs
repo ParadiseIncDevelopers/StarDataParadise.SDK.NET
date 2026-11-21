@@ -155,7 +155,7 @@ internal sealed class SdpWire : IDisposable
     }
 
     internal async Task<JsonElement> CallAsync(string operation, object? body, CancellationToken cancellationToken,
-        string? requestToken = null, bool allowClassicGreeting = false)
+        string? requestToken = null, bool allowClassicGreeting = false, bool uncertainOnSend = false)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(_timeout);
@@ -224,22 +224,22 @@ internal sealed class SdpWire : IDisposable
         catch (OperationCanceledException e)
         {
             if (sent) Dispose();
-            throw Interrupted(cancellationToken, sent ? requestToken : null, e);
+            throw Interrupted(cancellationToken, sent ? requestToken : null, e, sent && uncertainOnSend);
         }
         catch (Exception e) when (e is IOException or SocketException or ObjectDisposedException)
         {
             if (sent) Dispose();
             if (deadline.IsCancellationRequested)
-                throw Interrupted(cancellationToken, sent ? requestToken : null, e);
+                throw Interrupted(cancellationToken, sent ? requestToken : null, e, sent && uncertainOnSend);
             throw new SdpException(1010, "08006", "Connection closed during the exchange",
-                sent && requestToken is not null, sent ? requestToken : null, inner: e);
+                sent && (requestToken is not null || uncertainOnSend), sent ? requestToken : null, inner: e);
         }
         catch (Exception e) when (e is JsonException or InvalidOperationException or FormatException
             or System.Collections.Generic.KeyNotFoundException)
         {
             if (sent) Dispose();
             throw new SdpException(1001, "08P01", "Malformed protocol message",
-                sent && requestToken is not null, sent ? requestToken : null, inner: e);
+                sent && (requestToken is not null || uncertainOnSend), sent ? requestToken : null, inner: e);
         }
         finally
         {
@@ -329,11 +329,11 @@ internal sealed class SdpWire : IDisposable
     }
 #endif
 
-    private static SdpException Interrupted(CancellationToken cancellationToken, string? token, Exception e)
+    private static SdpException Interrupted(CancellationToken cancellationToken, string? token, Exception e, bool unknownOutcome = false)
     {
         return cancellationToken.IsCancellationRequested
-            ? new SdpException(1009, "57014", "Operation cancelled", token is not null, token, inner: e)
-            : new SdpException(1008, "HYT00", "Operation timed out", token is not null, token, inner: e);
+            ? new SdpException(1009, "57014", "Operation cancelled", token is not null || unknownOutcome, token, inner: e)
+            : new SdpException(1008, "HYT00", "Operation timed out", token is not null || unknownOutcome, token, inner: e);
     }
 
     public void Dispose()

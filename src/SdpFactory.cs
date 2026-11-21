@@ -12,6 +12,8 @@ public sealed class SdpFactory : DbProviderFactory
     private SdpFactory() { }
 
     public override DbConnection CreateConnection() => new SdpConnection();
+    public System.Threading.Tasks.Task<SdpNativeConnection> OpenNativeConnectionAsync(string connectionString, bool autocommit = true, System.Threading.CancellationToken cancellationToken = default) =>
+        SdpNativeConnection.OpenAsync(connectionString, autocommit, cancellationToken);
     public override DbCommand CreateCommand() => new SdpCommand();
     public override DbParameter CreateParameter() => new SdpParameter();
     public override DbConnectionStringBuilder CreateConnectionStringBuilder() => new();

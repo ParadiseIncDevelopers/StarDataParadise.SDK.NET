@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>StarDataParadiseDrive</PackageId>
-    <Version>2.0.3</Version>
+    <Version>2.1.0</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <DebugType>none</DebugType>
     <RootNamespace>StarDataParadise.SDK</RootNamespace>
@@ -15,6 +15,7 @@
     <ContractSha256>E6500900A3FA34910781EA92D5E41FE8716511FAC6F6D6C689FF9CCE15D578AB</ContractSha256>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="obj/**/*.cs;bin/**/*.cs" />
     <None Include="../BUILD.md" Pack="true" PackagePath="/" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />
     <None Include="$(ContractArchive)" Pack="true" PackagePath="contracts/" />

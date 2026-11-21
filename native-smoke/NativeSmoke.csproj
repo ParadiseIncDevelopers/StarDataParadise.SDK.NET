@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks Condition="'$(FrameworkFixture)' != 'true'">net8.0;net10.0</TargetFrameworks>
+    <TargetFramework Condition="'$(FrameworkFixture)' == 'true'">net48</TargetFramework>
+    <AutoGenerateBindingRedirects Condition="'$(FrameworkFixture)' == 'true'">true</AutoGenerateBindingRedirects>
+    <LangVersion>latest</LangVersion><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="obj/**/*.cs;bin/**/*.cs" />
+    <ProjectReference Condition="'$(InstalledPackageFixture)' != 'true' and '$(FrameworkFixture)' != 'true'" Include="../src/StarDataParadise.SDK.NET.csproj" />
+    <ProjectReference Condition="'$(InstalledPackageFixture)' != 'true' and '$(FrameworkFixture)' == 'true'" Include="../framework/StarDataParadiseNetFramework.csproj" />
+    <PackageReference Condition="'$(InstalledPackageFixture)' == 'true' and '$(FrameworkFixture)' != 'true'" Include="StarDataParadiseDrive" Version="[2.1.0]" />
+    <PackageReference Condition="'$(InstalledPackageFixture)' == 'true' and '$(FrameworkFixture)' == 'true'" Include="StarDataParadiseNetFramework" Version="[2.0.0]" />
+  </ItemGroup>
+</Project>

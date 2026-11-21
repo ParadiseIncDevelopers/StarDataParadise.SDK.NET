@@ -1,9 +1,9 @@
 # StarDataParadiseDrive
 
-StarDataParadiseDrive 2.0.3 is an independent ADO.NET provider for .NET 8 and .NET 10 on StarDataParadise Server 0.3.0 wire protocol v1. It uses TLS with certificate and server-name verification by default. The package has no Native DLL dependency. Existing 1.x applications should retain their pinned version until they migrate to .NET 8 or later and the provider API.
+StarDataParadiseDrive 2.1.0 is an independent ADO.NET provider for .NET 8 and .NET 10 using StarDataParadise wire protocol v1, including Server 0.5.0 and the compatible Server 0.3.0 ADO.NET endpoint. Server 0.5.0 also provides the dedicated native SQL endpoint described below. It uses TLS with certificate and server-name verification by default. The package has no Native DLL dependency. Existing 1.x applications should retain their pinned version until they migrate to .NET 8 or later and the provider API.
 
 ~~~powershell
-dotnet add package StarDataParadiseDrive --version 2.0.3
+dotnet add package StarDataParadiseDrive --version 2.1.0
 ~~~
 
 ## Connect and bind SQL parameters
@@ -56,4 +56,22 @@ The embedded and packaged wire contract has SHA-256 e6500900a3fa34910781ea92d5e4
 
 ## Local build and test
 
-Run ci.ps1 from the .NET SDK checkout with .NET SDK 10.0.402. It writes out/packages/StarDataParadiseDrive.2.0.3.nupkg and installs that exact version into a fresh local NuGet cache for the .NET 8 and .NET 10 console consumers. Add -Server, -OpenSsl and -FixtureHarness to run the separate real TLS acceptance fixture. The fixture must provision an isolated Server and supply its generated credentials independently of the package.
+Run ci.ps1 from the .NET SDK checkout with .NET SDK 10.0.402. It packs stable StarDataParadiseDrive 2.1.0 and StarDataParadiseNetFramework 2.0.0, then restores their exact local packages into a fresh NuGet cache for .NET 8, .NET 10 and Framework 4.8 ADO.NET/native boundary consumers. Add -Server, -OpenSsl and -FixtureHarness to run the separate real TLS acceptance fixture. The fixture must provision an isolated Server and supply its generated credentials independently of the package.
+
+
+## Native SQL sessions
+
+Use `await SdpNativeConnection.OpenAsync(connectionString)` for Server 0.5.0 or later advertising `native_sql_v1`. This is a dedicated connection, shared by .NET 8, .NET 10 and .NET Framework 4.8. `Pooling=true` is rejected. The existing ADO.NET `SdpConnection` and its durable CRUD receipt protocol retain their behavior.
+
+```csharp
+using var session = await SdpNativeConnection.OpenAsync(connectionString);
+var result = await session.ExecuteAsync(
+    "SELECT CAST(? AS UNSIGNED), CAST(? AS JSON)",
+    new object?[] { ulong.MaxValue, new SdpNativeJson("{\"id\":9007199254740993}") });
+```
+
+Positional `?` values go to the native prepared-statement protocol. SQL, comments and procedure bodies are passed to the server compiler unchanged. `SdpNativeJson` retains serialized JSON digits; `SdpNativeDecimal` supports 65 coefficient digits and scale 30; `SdpNativeTemporal` retains DATE/DATETIME/TIMESTAMP text and signed TIME intervals beyond 24 hours. Native binary values are byte arrays and unsigned BIGINT values are `ulong`. The result includes all sets, affected counts and the server's transaction/autocommit flags.
+
+`BeginAsync`, `RollbackAsync`, `CommitAsync`, `FetchResponseAsync` and `CancelRunAsync` use native SQL. COMMIT request keys are optional native AI options, not legacy CRUD receipts. A lost execute/fetch acknowledgement sets `SdpException.UnknownOutcome` even without a request token. No write is automatically replayed. Preserve native `run_id` and `call_id` to inspect the completed AI turn and its action status. `Details`, `NativeErrno`, `Phase`, `CommitState`, `RunState`, `RunId`, `CallId`, `ActionCommitState`, `CauseNativeErrno`, `CauseSqlstate` and `Retry` preserve structured error evidence. `CommitState` describes the initial turn; `ActionCommitState` separately describes the tool action, including a known rollback after the initial turn committed. Transaction flags describe the last successful response.
+
+Large responses are bounded to 16 MiB, transferred in bounded chunks and checked against SHA-256 before decoding. An incomplete/malformed result closes the native connection and reports an unknown operation outcome. Boundary tests in `native-smoke` cover framing, exact values, chunks/hash, transaction flags and lost acknowledgements; set `SDP_NATIVE_CONNECTION` to run its separate real SQL/TLS case. A passing wire fixture alone is not native server/compiler acceptance.
