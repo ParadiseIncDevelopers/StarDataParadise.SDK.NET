@@ -65,3 +65,12 @@ pwsh -NoProfile -File .\ci.ps1
 ## Native AI ve SQL oturumu
 
 Server 0.5.0 ve `native_sql_v1` desteği için `await SdpNativeConnection.OpenAsync(connectionString)` kullanın. Ayrı oturum `?` parametrelerini native prepared protocol ile gönderir; SQL metni ve yordam gövdeleri korunur. Kesilen yanıtlarda otomatik yazma tekrarı yapılmaz. AI turn commit sonucu ile araç işleminin rollback sonucu ayrı hata alanlarında saklanır. [Native API ve sınır testleri](BUILD.md#native-sql-sessions).
+
+## Lisans
+
+Bu depodaki modern .NET ve .NET Framework ADO.NET sağlayıcıları mevcut
+[MIT Lisansı](LICENSE) altında sunulur. Telif ve izin bildirimi korunarak
+ticari kullanım, değiştirme ve yeniden dağıtıma izin verilir.
+
+İki NuGet hedefi de MIT lisansını paketleme ayarlarında belirtir ve LICENSE
+dosyasını içerir. Bağımlılık ve ürün kapsamı: [LICENSING.md](LICENSING.md).

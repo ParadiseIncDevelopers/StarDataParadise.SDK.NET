@@ -11,6 +11,7 @@
     <DebugType>none</DebugType>
     <Description>StarDataParadise wire v1 ADO.NET provider for .NET Framework 4.8.</Description>
     <PackageReadmeFile>BUILD.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <ContractArchive>$(MSBuildProjectDirectory)/../contracts/sdp-contract-v1.zip</ContractArchive>
     <ContractSha256>E6500900A3FA34910781EA92D5E41FE8716511FAC6F6D6C689FF9CCE15D578AB</ContractSha256>
   </PropertyGroup>
@@ -19,6 +20,7 @@
     <Compile Include="../src/*.cs" LinkBase="Provider" />
     <PackageReference Include="System.Text.Json" Version="10.0.9" />
     <None Update="BUILD.md" Pack="true" PackagePath="/" />
+    <None Include="../LICENSE" Pack="true" PackagePath="/" />
     <None Include="$(ContractArchive)" Pack="true" PackagePath="contracts/" />
     <EmbeddedResource Include="$(ContractArchive)" LogicalName="StarDataParadise.SDK.WireContract.v1.zip" />
   </ItemGroup>
